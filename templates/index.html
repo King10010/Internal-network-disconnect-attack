@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NetManager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            padding-bottom: 80px; /* Space for sticky footer */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            background-color: #fff;
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        .container {
+            max-width: 800px;
+        }
+
+        .device-card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            background-color: var(--card-bg);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .device-card:active {
+            transform: scale(0.98);
+        }
+
+        .card-body {
+            padding: 16px;
+        }
+
+        .device-icon {
+            font-size: 2rem;
+            color: #6c757d;
+            margin-right: 12px;
+        }
+
+        .device-info {
+            flex-grow: 1;
+        }
+
+        .device-ip {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 2px;
+        }
+
+        .device-mac {
+            font-size: 0.85rem;
+            color: #adb5bd;
+            font-family: monospace;
+        }
+
+        .device-hostname {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-bottom: 4px;
+        }
+
+        .traffic-stats {
+            font-size: 0.8rem;
+            background-color: #f8f9fa;
+            padding: 6px 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .badge-status {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            font-size: 0.75rem;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .btn-action {
+            flex: 1;
+            border-radius: 8px;
+            padding: 8px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        /* Sticky Footer for Scan Button */
+        .sticky-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 12px 16px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn-scan {
+            width: 100%;
+            max-width: 400px;
+            border-radius: 25px;
+            padding: 12px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+        }
+
+        /* Console styling */
+        .console-container {
+            margin-top: 20px;
+        }
+        
+        #consoleCollapse {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #console {
+            background-color: #1e1e1e;
+            color: #00ff9d;
+            font-family: 'Consolas', 'Monaco', monospace;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            border: none;
+            margin: 0;
+        }
+
+        /* Custom scrollbar for console */
+        #console::-webkit-scrollbar {
+            width: 8px;
+        }
+        #console::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+        #console::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-light fixed-top">
+        <div class="container-fluid justify-content-center">
+            <span class="navbar-brand mb-0 h1">
+                <i class="bi bi-shield-lock-fill text-primary me-2"></i>NetManager
+            </span>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container" style="margin-top: 70px;">
+        
+        <!-- Public URL Alert -->
+        <div id="publicUrlAlert" class="alert alert-success d-none d-flex align-items-center" role="alert">
+            <i class="bi bi-globe me-2"></i>
+            <div class="text-truncate">
+                Public Access: <a href="#" id="publicUrlLink" target="_blank" class="alert-link">Connecting...</a>
+            </div>
+        </div>
+
+        <!-- Status Summary -->
+        <div class="d-flex justify-content-between align-items-center mb-3 px-2">
+            <h6 class="text-muted mb-0">Devices Found</h6>
+            <span class="badge bg-secondary rounded-pill" id="deviceCount">0</span>
+        </div>
+
+        <!-- Device List -->
+        <div id="deviceList">
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-wifi display-1 mb-3 d-block opacity-25"></i>
+                <p>Ready to scan network</p>
+            </div>
+        </div>
+
+        <!-- Logs Section (Accordion) -->
+        <div class="console-container">
+            <div class="accordion" id="logsAccordion">
+                <div class="accordion-item border-0 shadow-sm rounded-3 overflow-hidden">
+                    <h2 class="accordion-header" id="headingLogs">
+                        <button class="accordion-button collapsed bg-white" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLogs" aria-expanded="false" aria-controls="collapseLogs">
+                            <i class="bi bi-terminal me-2"></i> Attack Logs
+                        </button>
+                    </h2>
+                    <div id="collapseLogs" class="accordion-collapse collapse" aria-labelledby="headingLogs" data-bs-parent="#logsAccordion">
+                        <div class="accordion-body p-0">
+                            <div id="console">Waiting for activity...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sticky Footer -->
+    <div class="sticky-footer">
+        <button id="scanBtn" class="btn btn-primary btn-scan" onclick="scanNetwork()">
+            <i class="bi bi-search me-2"></i>Scan Network
+        </button>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let logInterval = null;
+        let trafficInterval = null;
+
+        function formatBytes(bytes, decimals = 1) {
+            if (!+bytes) return '0 B';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['B', 'K', 'M', 'G', 'T'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))}${sizes[i]}/s`;
+        }
+
+        function getVendorIcon(vendor) {
+            vendor = (vendor || "").toLowerCase();
+            if (vendor.includes("apple")) return "bi-apple";
+            if (vendor.includes("android") || vendor.includes("google")) return "bi-android2";
+            if (vendor.includes("microsoft") || vendor.includes("windows")) return "bi-windows";
+            if (vendor.includes("vmware")) return "bi-hdd-network";
+            return "bi-phone"; // Default to generic device
+        }
+
+        async function scanNetwork() {
+            const btn = document.getElementById('scanBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Scanning...`;
+            
+            try {
+                const response = await fetch('/scan');
+                const devices = await response.json();
+                
+                const list = document.getElementById('deviceList');
+                const countBadge = document.getElementById('deviceCount');
+                list.innerHTML = '';
+                countBadge.innerText = devices.length;
+                
+                if (devices.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-exclamation-circle display-4 mb-3 d-block text-warning"></i>
+                            <p>No devices found.</p>
+                        </div>`;
+                    return;
+                }
+
+                devices.forEach(device => {
+                    const isAttacked = device.is_attacked;
+                    const statusBadge = isAttacked 
+                        ? `<span class="badge bg-danger badge-status"><i class="bi bi-lightning-fill me-1"></i>Attacked</span>` 
+                        : `<span class="badge bg-success badge-status"><i class="bi bi-shield-check me-1"></i>Safe</span>`;
+                    
+                    const safeIp = device.ip.replace(/\./g, '-');
+                    const iconClass = getVendorIcon(device.hostname || device.vendor);
+                    
+                    const card = `
+                        <div class="device-card position-relative">
+                            ${statusBadge}
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="device-icon">
+                                        <i class="bi ${iconClass}"></i>
+                                    </div>
+                                    <div class="device-info">
+                                        <div class="device-ip">${device.ip}</div>
+                                        <div class="device-hostname text-truncate" style="max-width: 200px;">${device.hostname || 'Unknown Device'}</div>
+                                    </div>
+                                </div>
+                                <div class="device-mac"><i class="bi bi-cpu me-1"></i>${device.mac || 'Unknown MAC'}</div>
+                                
+                                <div class="traffic-stats">
+                                    <span class="text-primary"><i class="bi bi-arrow-up-short"></i><span id="tx-${safeIp}">0 B/s</span></span>
+                                    <span class="text-success"><i class="bi bi-arrow-down-short"></i><span id="rx-${safeIp}">0 B/s</span></span>
+                                </div>
+
+                                <div class="action-buttons">
+                                    <button class="btn btn-outline-danger btn-action" onclick="toggleAttack('${device.ip}', 'start')">
+                                        <i class="bi bi-wifi-off"></i> Disconnect
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-action" onclick="toggleAttack('${device.ip}', 'stop')">
+                                        <i class="bi bi-wifi"></i> Restore
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    list.innerHTML += card;
+                });
+
+                startTrafficPolling();
+
+            } catch (error) {
+                alert('Error scanning network: ' + error);
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        async function toggleAttack(ip, action) {
+            // Optimistic UI update could be added here, but for safety we wait for response
+            try {
+                const response = await fetch('/attack', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_ip: ip, action: action })
+                });
+                const result = await response.json();
+                
+                // Show toast or alert? Alert is simple for now.
+                // alert(result.message);
+                
+                // Refresh scan to update badges and UI state
+                scanNetwork();
+
+                if (action === 'start') {
+                    // Open logs if attack starts
+                    const collapseLogs = document.getElementById('collapseLogs');
+                    if (!collapseLogs.classList.contains('show')) {
+                        new bootstrap.Collapse(collapseLogs, { show: true });
+                    }
+                    startLogPolling();
+                }
+            } catch (error) {
+                alert('Error communicating with server');
+            }
+        }
+
+        function startLogPolling() {
+            if (logInterval) return; 
+            
+            const consoleDiv = document.getElementById('console');
+            consoleDiv.innerText = ">> Log stream active...\n";
+            
+            logInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/logs');
+                    const logs = await response.json();
+                    
+                    if (logs.length > 0) {
+                        logs.forEach(line => {
+                            consoleDiv.innerText += line + "\n";
+                        });
+                        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                    }
+                } catch (e) {
+                    console.error("Log poll error", e);
+                }
+            }, 1000);
+        }
+
+        function startTrafficPolling() {
+            if (trafficInterval) return;
+
+            trafficInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/traffic');
+                    const stats = await response.json();
+                    
+                    for (const [ip, data] of Object.entries(stats)) {
+                        const safeIp = ip.replace(/\./g, '-');
+                        const txElem = document.getElementById(`tx-${safeIp}`);
+                        const rxElem = document.getElementById(`rx-${safeIp}`);
+                        
+                        if (txElem) txElem.innerText = formatBytes(data.tx_speed);
+                        if (rxElem) rxElem.innerText = formatBytes(data.rx_speed);
+                    }
+                } catch (e) {
+                    console.error("Traffic poll error", e);
+                }
+            }, 1000);
+        }
+        
+        async function checkPublicUrl() {
+            try {
+                const response = await fetch('/public_url');
+                const data = await response.json();
+                if (data.url) {
+                    const alert = document.getElementById('publicUrlAlert');
+                    const link = document.getElementById('publicUrlLink');
+                    link.href = data.url;
+                    link.innerText = data.url;
+                    alert.classList.remove('d-none');
+                }
+            } catch (e) {
+                console.error("Error checking public url", e);
+            }
+        }
+        
+        startLogPolling();
+        checkPublicUrl();
+        setInterval(checkPublicUrl, 5000); // Check periodically
+    </script>
+</body>
+</html>
