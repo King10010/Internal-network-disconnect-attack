@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; }
+        .device-card { margin-bottom: 10px; }
+        #console {
+            background-color: #1e1e1e;
+            color: #0f0;
+            font-family: monospace;
+            padding: 15px;
+            border-radius: 5px;
+            height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Network Device Manager</h1>
+        
+        <button id="scanBtn" class="btn btn-primary mb-3" onclick="scanNetwork()">Scan Network</button>
+        
+        <div id="deviceList" class="row">
+            <!-- Devices will be populated here -->
+            <div class="col-12 text-muted">Click "Scan Network" to find devices.</div>
+        </div>
+
+        <h3 class="mt-4">Attack Logs</h3>
+        <div id="console">Waiting for logs...</div>
+    </div>
+
+    <script>
+        let logInterval = null;
+
+        async function scanNetwork() {
+            const btn = document.getElementById('scanBtn');
+            btn.disabled = true;
+            btn.innerText = "Scanning...";
+            
+            try {
+                const response = await fetch('/scan');
+                const devices = await response.json();
+                
+                const list = document.getElementById('deviceList');
+                list.innerHTML = '';
+                
+                if (devices.length === 0) {
+                    list.innerHTML = '<div class="col-12">No devices found.</div>';
+                    return;
+                }
+
+                devices.forEach(device => {
+                    let statusBadge = device.is_attacked ? '<span class="badge bg-danger">Attacked</span>' : '<span class="badge bg-success">Safe</span>';
+                    const card = `
+                        <div class="col-md-6 col-lg-4 device-card">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">${device.ip} ${statusBadge}</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">${device.hostname}</h6>
+                                    <p class="card-text">MAC: ${device.mac}</p>
+                                    <button class="btn btn-danger btn-sm" onclick="toggleAttack('${device.ip}', 'start')">Disconnect</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="toggleAttack('${device.ip}', 'stop')">Restore</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    list.innerHTML += card;
+                });
+            } catch (error) {
+                alert('Error scanning network');
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Scan Network";
+            }
+        }
+
+        async function toggleAttack(ip, action) {
+            try {
+                const response = await fetch('/attack', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_ip: ip, action: action })
+                });
+                const result = await response.json();
+                alert(result.message);
+                
+                // Refresh scan to update badges
+                scanNetwork();
+
+                if (action === 'start') {
+                    startLogPolling();
+                }
+            } catch (error) {
+                alert('Error communicating with server');
+            }
+        }
+
+        function startLogPolling() {
+            if (logInterval) return; // Already polling
+            
+            const consoleDiv = document.getElementById('console');
+            consoleDiv.innerText = "Starting log stream...\n";
+            
+            logInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/logs');
+                    const logs = await response.json();
+                    
+                    if (logs.length > 0) {
+                        logs.forEach(line => {
+                            consoleDiv.innerText += line + "\n";
+                        });
+                        // Auto scroll to bottom
+                        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                    }
+                } catch (e) {
+                    console.error("Log poll error", e);
+                }
+            }, 1000);
+        }
+        
+        // Start polling on load in case refresh happens
+        startLogPolling();
+    </script>
+</body>
+</html>
